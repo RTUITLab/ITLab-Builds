@@ -4,8 +4,16 @@ import json
 import re
 import requests
 from flask import request
+from decouple import config
 
-g = Github("f5a851cefa57f1b674b835a27e4c6fd0bc2e6bb6")
+GITHUB_API_KEY=config('GH_KEY')
+
+if not GITHUB_API_KEY:
+    print('No GITHUB API KEY')
+    exit()
+
+AUTHORIZATION_HEADER='token %s' % GITHUB_API_KEY
+g = Github(GITHUB_API_KEY)
 org = g.get_organization("RTUITLab")
 app = Flask(__name__)
 
@@ -37,7 +45,7 @@ def get_releases_list(repoName):
 @app.route('/api/builds/repos/<repoName>/releases/<releaseId>/<filename>')
 def download_release_asset(repoName, releaseId, filename):
     release = org.get_repo(repoName).get_release(releaseId)
-    headers = {'Authorization': 'token %s' % 'f5a851cefa57f1b674b835a27e4c6fd0bc2e6bb6'}
+    headers = {'Authorization': AUTHORIZATION_HEADER}
     reg_exp = re.compile(r'.*\/([^\/]*)$')
     i = org.get_repo(repoName).get_release(releaseId)
     assets = []
@@ -58,7 +66,7 @@ def download_release_asset(repoName, releaseId, filename):
             if filename == (assets[k]['name']):
                 target = filename
                 headers = {'Accept': 'application/octet-stream',
-                           'Authorization': 'token %s' % 'f5a851cefa57f1b674b835a27e4c6fd0bc2e6bb6'}
+                           'Authorization': AUTHORIZATION_HEADER}
                 r = requests.get(
                     'https://api.github.com/repos/RTUITLab/' + repoName + '/releases/assets/' + str(assets[k]['id']),
                     headers=headers)
@@ -66,16 +74,6 @@ def download_release_asset(repoName, releaseId, filename):
         the_file.write(r.content)
     return send_file(target, as_attachment=True)
 
-
-@app.route('/api/builds/repos/<repoName>/<branch>')
-def download_repo(repoName, branch):
-    headers = {'Accept': 'application/octet-stream',
-               'Authorization': 'token %s' % 'f5a851cefa57f1b674b835a27e4c6fd0bc2e6bb6'}
-    r = requests.get('https://api.github.com/repos/RTUITLab/' + repoName + '/zipball/' + branch,
-                     headers=headers)
-    with open(repoName + branch + '.zip', 'wb') as the_file:
-        the_file.write(r.content)
-    return send_file(repoName + branch + '.zip', as_attachment=True)
 
 
 if __name__ == '__main__':
